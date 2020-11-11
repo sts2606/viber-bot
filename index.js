@@ -29,8 +29,11 @@ if (process.env.NOW_URL || process.env.HEROKU_URL) {
 
   http
     .createServer(bot.middleware())
-    .listen(port, () =>
-      bot.setWebhook(process.env.NOW_URL || process.env.HEROKU_URL)
+	.listen(port, () =>{
+		console.log("work")
+		bot.setWebhook(process.env.NOW_URL || process.env.HEROKU_URL)
+console.log("zzzz");
+	}
     );
 } else {
   logger.debug(
