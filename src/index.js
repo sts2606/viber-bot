@@ -1,14 +1,8 @@
-"use strict";
-
 const ViberBot = require("viber-bot").Bot;
 const BotEvents = require("viber-bot").Events;
 const TextMessage = require("viber-bot").Message.Text;
-require("dotenv").config();
-
 const winston = require("winston");
 const toYAML = require("winston-console-formatter");
-const ngrok = require("./get_public_url");
-
 var request = require("request");
 
 function createLogger() {
@@ -20,9 +14,40 @@ function createLogger() {
   return logger;
 }
 
+const logger = createLogger();
+
+// Creating the bot with access token, name and avatar
+const bot = new ViberBot(logger, {
+  authToken: "4c1ca1ddf2e7d202-1822fb6126208aab-235cf9c48328f72a", // <--- Paste your token here
+  name: "Is It Up", // <--- Your bot name here
+  avatar: "http://api.adorable.io/avatar/200/isitup", // It is recommended to be 720x720, and no more than 100kb.
+});
+
+if (process.env.NOW_URL || process.env.HEROKU_URL) {
+  const http = require("http");
+  const port = process.env.PORT || 8080;
+
+  http
+    .createServer(bot.middleware())
+    .listen(port, () =>
+      bot.setWebhook(process.env.NOW_URL || process.env.HEROKU_URL)
+    );
+} else {
+  logger.debug(
+    "Could not find the now.sh/Heroku environment variables. Please make sure you followed readme guide."
+  );
+}
+
 function say(response, message) {
   response.send(new TextMessage(message));
 }
+
+bot.onSubscribe((response) => {
+  say(
+    response,
+    `Hi there ${response.userProfile.name}. I am ${bot.name}! Feel free to ask me if a web site is down for everyone or just you. Just send me a name of a website and I'll do the rest!`
+  );
+});
 
 function checkUrlAvailability(botResponse, urlToCheck) {
   if (urlToCheck === "") {
@@ -58,67 +83,6 @@ function checkUrlAvailability(botResponse, urlToCheck) {
   });
 }
 
-const logger = createLogger();
-
-if (!process.env.VIBER_PUBLIC_ACCOUNT_ACCESS_TOKEN_KEY) {
-  logger.debug(
-    "Could not find the Viber account access token key in your environment variable. Please make sure you followed readme guide."
-  );
-  return;
-}
-
-// Creating the bot with access token, name and avatar
-const bot = new ViberBot(logger, {
-  authToken: "4c1ca1ddf2e7d202-1822fb6126208aab-235cf9c48328f72a", // Learn how to get your access token at developers.viber.com
-  name: "Is It Up",
-  avatar: "https://raw.githubusercontent.com/devrelv/drop/master/151-icon.png", // Just a placeholder avatar to display the user
-});
-
-// The user will get those messages on first registration
-bot.onSubscribe((response) => {
-  say(
-    response,
-    `Hi there ${response.userProfile.name}. I am ${bot.name}! Feel free to ask me if a web site is down for everyone or just you. Just send me a name of a website and I'll do the rest!`
-  );
-});
-
-bot.on(BotEvents.MESSAGE_RECEIVED, (message, response) => {
-  // This sample bot can answer only text messages, let's make sure the user is aware of that.
-  if (!(message instanceof TextMessage)) {
-    say(response, `Sorry. I can only understand text messages.`);
-  }
-});
-
 bot.onTextMessage(/./, (message, response) => {
-  checkUrlAvailability(response, message.text);
-});
-
-if (process.env.NOW_URL || process.env.HEROKU_URL) {
-  const http = require("http");
-  const port = process.env.PORT || 8080;
-
-  http
-    .createServer(bot.middleware())
-    .listen(port, () =>
-      bot.setWebhook(process.env.NOW_URL || process.env.HEROKU_URL)
-    );
-} else {
-  logger.debug(
-    "Could not find the now.sh/Heroku environment variables. Trying to use the local ngrok server."
-  );
-  return ngrok
-    .getPublicUrl()
-    .then((publicUrl) => {
-      const http = require("http");
-      const port = process.env.PORT || 8080;
-
-      http
-        .createServer(bot.middleware())
-        .listen(port, () => bot.setWebhook(publicUrl));
-    })
-    .catch((error) => {
-      console.log("Can not connect to ngrok server. Is it running?");
-      console.error(error);
-      process.exit(1);
-    });
+    checkUrlAvailability(response, message.text);
 }
